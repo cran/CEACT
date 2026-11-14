@@ -17,12 +17,12 @@
 #' @export
 #'
 #' @examples
-#' df <- simulate_ce_trial(n = 100, seed = 123)
-#' dsa <- dsa_icer(cost + effect ~ group, data = df, param = "effect",
+#' df <- simulatecetrial(n = 100, seed = 123)
+#' dsa <- dsaicer(cost + effect ~ group, data = df, param = "effect",
 #'                 range = seq(0.74, 0.82, 0.02), ref = "control",
 #'                 metric = "INMB", k = 20000)
 #' head(dsa)
-dsa_icer <- function(formula, data, param, range, ref, metric = "ICER",
+dsaicer <- function(formula, data, param, range, ref, metric = "ICER",
                      k = 1000) {
   metric <- toupper(metric)
   if (metric == "NMB") metric <- "INMB"
@@ -51,7 +51,7 @@ dsa_icer <- function(formula, data, param, range, ref, metric = "ICER",
       deltas["delta_cost"]
   }, numeric(1))
 
-  results <- data.frame(Parameter = range, Value = values)
+  results <- .as_bt(data.frame(Parameter = range, Value = values))
   names(results)[2] <- metric
   attr(results, "metric") <- metric
   results

@@ -1,13 +1,13 @@
 Package: CEACT
 Type: Package
 Title: Cost-Effectiveness Analysis Toolkit for Clinical Trials
-Version: 0.5.0
-Author: Imad EL BADISY [aut, cre]
-Maintainer: Imad EL BADISY <elbadisyimad@gmail.com>
+Version: 0.6.2
+Author: Imad El Badisy [aut, cre]
+Maintainer: Imad El Badisy <elbadisyimad@gmail.com>
 Authors@R: 
     person(
       given = "Imad",
-      family = "EL BADISY",
+      family = "El Badisy",
       email = "elbadisyimad@gmail.com",
       role = c("aut", "cre")
     )
@@ -17,19 +17,21 @@ Description:
     cost-effectiveness acceptability curves, cost-effectiveness planes, 
     net monetary benefit tables, and one-way deterministic sensitivity analyses. 
     Supports cost-utility analyses using observed summaries and non-parametric 
-    bootstrap uncertainty.
+    bootstrap uncertainty, and multiply imputed data through Rubin's rules
+    (Rubin 1987, ISBN:9780471087052) or bootstrap-then-impute resampling
+    (Brand et al. 2019 <doi:10.1002/sim.7956>).
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3
-URL: https://github.com/ielbadisy/CEACT
+URL: https://CRAN.R-project.org/package=CEACT
 BugReports: https://github.com/ielbadisy/CEACT/issues
 Depends: R (>= 3.5.0)
-Imports: ggplot2, boot
-Suggests: knitr, rmarkdown, testthat (>= 3.0.0)
+Imports: basetable (>= 1.4.5), ggplot2, boot, parallel
+Suggests: mice, mimar, knitr, rmarkdown, testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2026-06-08 19:28:28 UTC; imad-el-badisy
+Packaged: 2026-11-13 22:07:36 UTC; imad-el-badisy
 Repository: CRAN
-Date/Publication: 2026-06-16 20:00:02 UTC
+Date/Publication: 2026-11-14 15:40:32 UTC

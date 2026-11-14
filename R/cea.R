@@ -15,7 +15,7 @@
 #'   include `ICER`, `delta_cost`, `delta_effect`, `formula`, `ref`, and `call`.
 #'
 #' @examples
-#' df <- simulate_ce_trial(n = 100, seed = 123)
+#' df <- simulatecetrial(n = 100, seed = 123)
 #' res <- cea(cost + effect ~ group, data = df, ref = "control")
 #' summary(res)
 #'
@@ -62,7 +62,7 @@ cea <- function(formula, data, ref, na.omit = TRUE) {
     formula = formula,
     ref = ref,
     call = match.call(),
-    class = c("cea", "data.frame")
+    class = c("cea", "basetable", "data.frame")
   )
 }
 

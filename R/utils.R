@@ -112,9 +112,9 @@ format_pval <- function(p, digits = 4) {
 #' @export
 #'
 #' @examples
-#' trial <- simulate_ce_trial(n = 50, seed = 1)
+#' trial <- simulatecetrial(n = 50, seed = 1)
 #' head(trial)
-simulate_ce_trial <- function(n = 200,
+simulatecetrial <- function(n = 200,
                               mean_cost = c(5000, 5600),
                               sd_cost = c(900, 1000),
                               mean_effect = c(0.72, 0.78),
@@ -136,9 +136,75 @@ simulate_ce_trial <- function(n = 200,
     )
   })
 
-  out <- do.call(rbind, arm_data)
+  out <- .as_bt(basetable::rbindfill(arm_data))
   out$cost <- pmax(out$cost, 0)
   out$effect <- pmax(out$effect, 0)
   out$group <- factor(out$group, levels = group_names)
   out
+}
+
+# Result tables are basetable objects.
+.as_bt <- function(x) {
+  x <- as.data.frame(x, stringsAsFactors = FALSE)
+  rownames(x) <- NULL
+  basetable::asbasetable(x)
+}
+
+# Share of bootstrap replicates in each quadrant of the cost-effectiveness
+# plane. A zero difference counts as "not positive".
+ce_quadrants <- function(dc, de) {
+  q <- ifelse(de > 0,
+              ifelse(dc > 0, "NE", "SE"),
+              ifelse(dc > 0, "NW", "SW"))
+  q <- factor(q, levels = c("NE", "SE", "NW", "SW"))
+  share <- as.numeric(table(q)) / length(q)
+  .as_bt(data.frame(
+    Quadrant = c("NE", "SE", "NW", "SW"),
+    Description = c("more costly, more effective",
+                    "less costly, more effective, dominant",
+                    "more costly, less effective, dominated",
+                    "less costly, less effective"),
+    Share = share,
+    stringsAsFactors = FALSE
+  ))
+}
+
+# ICER row of a bootstrap summary. The point estimate is the observed ratio of
+# mean differences. A percentile interval of the ratio is only meaningful when
+# all replicates fall in the NE or in the SW quadrant; otherwise it is NA and a
+# note points to the CEAC / INMB.
+icer_interval <- function(dc, de, quadrants, conf = 0.95) {
+  share <- stats::setNames(quadrants$Share, quadrants$Quadrant)
+  one <- names(share)[share == 1]
+  if (length(one) == 1L && one %in% c("NE", "SW")) {
+    probs <- c((1 - conf) / 2, 1 - (1 - conf) / 2)
+    return(list(ci = stats::quantile(dc / de, probs, names = FALSE),
+                note = NULL))
+  }
+  note <- if (length(one) == 1L) {
+    paste0("All replicates lie in the ", one, " quadrant (",
+           if (one == "SE") "treatment dominant" else "treatment dominated",
+           "); the ICER interval is not reported.")
+  } else {
+    paste0("Bootstrap replicates span several quadrants of the ",
+           "cost-effectiveness plane; an ICER interval is not meaningful. ",
+           "Use the CEAC or INMB from computenmbceac() instead.")
+  }
+  list(ci = c(NA_real_, NA_real_), note = note)
+}
+
+# Summary table shared by booticer() and miboot().
+boot_summary_table <- function(observed, boot_dist, ci_dc, ci_de, ci_icer) {
+  bm <- colMeans(boot_dist[, 1:2, drop = FALSE])
+  data.frame(
+    Metric = c("Delta Cost", "Delta Effect", "ICER"),
+    Observed = round(unname(observed), 3),
+    BootstrapMean = round(c(bm, NA_real_), 3),
+    StdError = round(c(apply(boot_dist[, 1:2, drop = FALSE], 2, stats::sd),
+                       NA_real_), 3),
+    Bias = round(c(bm - observed[1:2], NA_real_), 3),
+    CI = c(format_interval(ci_dc), format_interval(ci_de),
+           format_interval(ci_icer)),
+    stringsAsFactors = FALSE
+  )
 }

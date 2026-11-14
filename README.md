@@ -1,6 +1,9 @@
 CEACT Package
 ================
 
+[![CRAN
+status](https://www.r-pkg.org/badges/version/CEACT)](https://CRAN.R-project.org/package=CEACT)
+
 ## Overview
 
 **CEACT** *(Cost-Effectiveness Analysis for Clinical Trials)* is an R
@@ -17,16 +20,28 @@ formula-based workflow for:
 
 - cost-effectiveness planes;
 
-- one-way deterministic sensitivity analysis.
+- one-way deterministic sensitivity analysis;
+
+- missing cost and effect data, through Rubin’s rules on multiply
+  imputed data (`micea()`) or bootstrap-then-impute resampling
+  (`miboot()`).
 
 CEACT is intended for individual-level clinical-trial datasets with one
 cost variable, one effect variable, and a two-level treatment group.
 
 ## Installation
 
+Install the released version from CRAN:
+
 ``` r
-# install.packages("devtools")
-devtools::install_github("ielbadisy/CEACT")
+install.packages("CEACT")
+```
+
+Or the development version from GitHub:
+
+``` r
+# install.packages("remotes")
+remotes::install_github("ielbadisy/CEACT")
 ```
 
 ``` r
@@ -36,8 +51,9 @@ library(CEACT)
 ## Simulate Trial Data
 
 ``` r
-trial <- simulate_ce_trial(n = 200, seed = 123)
+trial <- simulatecetrial(n = 200, seed = 123)
 head(trial)
+#> # basetable: 6 x 3
 #>       cost    effect   group
 #> 1 4495.572 0.9289862 control
 #> 2 4792.840 0.8463038 control
@@ -72,32 +88,30 @@ summary(res_cea)
 
 ``` r
 set.seed(42)
-res_boot <- boot_icer(cost + effect ~ group, data = trial, ref = "control",
+res_boot <- booticer(cost + effect ~ group, data = trial, ref = "control",
                       R = 500, ci.type = "perc")
 summary(res_boot)
-#>                   Metric  Observed BootstrapMean StdError    Bias
-#> DeltaCost     Delta Cost   639.489       634.728   90.584  -4.761
-#> DeltaEffect Delta Effect     0.054         0.054    0.010  -0.001
-#> ICER                ICER 11818.694     12310.932 3130.320 492.238
-#>                                CI
-#> DeltaCost      [455.471; 810.055]
-#> DeltaEffect        [0.033; 0.073]
-#> ICER        [7529.884; 18944.767]
+#> # basetable: 3 x 6
+#>         Metric  Observed BootstrapMean StdError   Bias                    CI
+#> 1   Delta Cost   639.489       634.728   90.584 -4.761    [455.471; 810.055]
+#> 2 Delta Effect     0.054         0.054    0.010 -0.001        [0.033; 0.073]
+#> 3         ICER 11818.694            NA       NA     NA [7593.238; 18788.674]
 ```
 
 ## Cost-Effectiveness Plane
 
 ``` r
-plot_ceplane(res_boot, k = 20000)
+plotceplane(res_boot, k = 20000)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+![](man/figures/README-unnamed-chunk-7-1.png)<!-- -->
 
 ## Net Monetary Benefit and CEAC
 
 ``` r
-ceac_table <- compute_nmb_ceac(res_boot, wtp_range = seq(0, 50000, 5000))
+ceac_table <- computenmbceac(res_boot, wtp_range = seq(0, 50000, 5000))
 head(ceac_table)
+#> # basetable: 6 x 3
 #>     WTP       ENMB Prob_CE
 #> 1     0 -639.48888   0.000
 #> 2  5000 -368.94762   0.000
@@ -105,31 +119,87 @@ head(ceac_table)
 #> 4 15000  172.13490   0.826
 #> 5 20000  442.67616   0.982
 #> 6 25000  713.21742   0.996
-plot_ceac(ceac_table)
+plotceac(ceac_table)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+![](man/figures/README-unnamed-chunk-8-1.png)<!-- -->
 
 ## Deterministic Sensitivity Analysis
 
 ``` r
-dsa_result <- dsa_icer(cost + effect ~ group, data = trial,
+dsa_result <- dsaicer(cost + effect ~ group, data = trial,
                        param = "effect",
                        range = seq(0.74, 0.82, 0.02),
                        ref = "control",
                        metric = "INMB",
                        k = 20000)
 dsa_result
+#> # basetable: 5 x 2
 #>   Parameter       INMB
 #> 1      0.74 -320.20684
 #> 2      0.76   79.79316
 #> 3      0.78  479.79316
 #> 4      0.80  879.79316
 #> 5      0.82 1279.79316
-plot_dsa(dsa_result, metric = "INMB")
+plotdsa(dsa_result, metric = "INMB")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+![](man/figures/README-unnamed-chunk-9-1.png)<!-- -->
+
+## Missing Data: Multiple Imputation
+
+Trial costs and effects are often incomplete. `micea()` runs the
+analysis in each completed data set and pools the incremental cost,
+incremental effect, and INMB with Rubin’s rules (Barnard-Rubin degrees
+of freedom). It accepts a `mimar_imputation` (from `mimar::impute()`), a
+`mids` (from `mice::mice()`), or a plain list of completed data frames.
+The pooled CEAC table works with `plotceac()`.
+
+``` r
+set.seed(1)
+trial_mis <- trial
+trial_mis$cost[sample(nrow(trial_mis), 50)] <- NA
+
+imp <- mimar::impute(trial_mis, m = 5, seed = 1)
+res_mi <- micea(cost + effect ~ group, data = imp, ref = "control",
+                wtp_range = seq(0, 50000, 5000))
+res_mi
+#> Cost-effectiveness analysis pooled over 5 imputations
+#> Reference: control; treatment: treatment; n = 400
+#> 
+#> # basetable: 3 x 7
+#>        Metric  Estimate StdError   Lower   Upper      df   FMI
+#>    Delta Cost   661.826   92.720 479.342 844.311 291.696 0.061
+#>  Delta Effect     0.054    0.011   0.033   0.075 398.000 0.000
+#>          ICER 12231.525       NA      NA      NA      NA    NA
+plotceac(res_mi$ceac)
+```
+
+![](man/figures/README-unnamed-chunk-10-1.png)<!-- -->
+
+`miboot()` bootstraps first and imputes every bootstrap sample with a
+user-supplied function (Brand et al. 2019). The result is a
+`booticer`-compatible object, so `computenmbceac()`, `plotceplane()`,
+and `plotceac()` work unchanged.
+
+``` r
+impute_fun <- function(d) mimar::impute(d, m = 2)
+res_miboot <- miboot(cost + effect ~ group, data = trial_mis, ref = "control",
+                     imputefun = impute_fun, R = 100, seed = 1)
+summary(res_miboot)
+#> # basetable: 3 x 6
+#>         Metric  Observed BootstrapMean StdError    Bias                    CI
+#> 1   Delta Cost   686.372       659.151   98.374 -27.221    [462.925; 847.301]
+#> 2 Delta Effect     0.054         0.057    0.010   0.003         [0.04; 0.081]
+#> 3         ICER 12685.162            NA       NA      NA [7792.656; 16950.597]
+plotceplane(res_miboot, k = 20000)
+```
+
+![](man/figures/README-unnamed-chunk-11-1.png)<!-- -->
+
+Both functions take an optional `weights` argument naming a case-weight
+column (for example matching or inverse probability weights computed
+within each completed data set).
 
 ## Trial-Based CEA Dataset
 
